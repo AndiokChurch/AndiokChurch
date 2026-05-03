@@ -1,65 +1,120 @@
-import Image from "next/image";
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import type { Sermon, Announcement, WorshipSchedule } from '@/lib/types'
 
-export default function Home() {
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토']
+
+async function getData() {
+  const [{ data: worships }, { data: sermons }, { data: announcements }] = await Promise.all([
+    supabase.from('worship_schedules').select('*').order('day_of_week'),
+    supabase.from('sermons').select('*').order('sermon_date', { ascending: false }).limit(3),
+    supabase.from('announcements').select('*').order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(3),
+  ])
+  return {
+    worships: (worships ?? []) as WorshipSchedule[],
+    sermons: (sermons ?? []) as Sermon[],
+    announcements: (announcements ?? []) as Announcement[],
+  }
+}
+
+export const revalidate = 60
+
+export default async function HomePage() {
+  const { worships, sermons, announcements } = await getData()
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      {/* Hero */}
+      <section className="bg-primary text-white py-24 px-4 text-center">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">강북 안디옥 교회</h1>
+        <p className="text-blue-200 text-lg md:text-xl mb-8">말씀과 기도로 세워지는 교회</p>
+        <div className="flex gap-4 justify-center flex-wrap">
+          <Link href="/worship" className="bg-secondary text-white px-6 py-3 rounded-full font-semibold hover:bg-secondary-dark transition-colors">
+            예배 안내
+          </Link>
+          <Link href="/welcome" className="border border-white text-white px-6 py-3 rounded-full font-semibold hover:bg-white hover:text-primary transition-colors">
+            처음 오시나요?
+          </Link>
+          <Link href="/gospel" className="bg-white text-primary px-6 py-3 rounded-full font-semibold hover:bg-blue-50 transition-colors">
+            복음이란?
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* 예배 일정 요약 */}
+      <section className="max-w-6xl mx-auto px-4 py-16">
+        <h2 className="text-2xl font-bold text-primary mb-8 text-center">예배 안내</h2>
+        {worships.length === 0 ? (
+          <p className="text-center text-gray-400">등록된 예배 일정이 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {worships.map((w) => (
+              <div key={w.id} className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm text-center">
+                <div className="text-secondary font-bold text-sm mb-1">{w.type}</div>
+                <div className="text-primary font-semibold">{DAY_NAMES[w.day_of_week]}요일</div>
+                <div className="text-gray-600 text-sm mt-1">{w.time}</div>
+                <div className="text-gray-400 text-xs mt-1">{w.location}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="text-center mt-6">
+          <Link href="/worship" className="text-primary font-medium hover:underline text-sm">
+            전체 예배 일정 보기 →
+          </Link>
         </div>
-      </main>
+      </section>
+
+      {/* 최근 설교 */}
+      <section className="bg-gray-50 py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl font-bold text-primary mb-8 text-center">최근 설교</h2>
+          {sermons.length === 0 ? (
+            <p className="text-center text-gray-400">등록된 설교가 없습니다.</p>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
+              {sermons.map((s) => (
+                <div key={s.id} className="bg-white rounded-xl p-6 shadow-sm">
+                  <div className="text-secondary text-xs font-semibold mb-2">{s.sermon_date}</div>
+                  <h3 className="font-bold text-gray-800 mb-1 line-clamp-2">{s.title}</h3>
+                  <p className="text-gray-500 text-sm mb-1">{s.scripture}</p>
+                  <p className="text-gray-400 text-xs">{s.preacher} 목사</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="text-center mt-6">
+            <Link href="/sermons" className="text-primary font-medium hover:underline text-sm">
+              설교 전체 보기 →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 공지사항 */}
+      <section className="max-w-6xl mx-auto px-4 py-16">
+        <h2 className="text-2xl font-bold text-primary mb-8 text-center">공지사항</h2>
+        {announcements.length === 0 ? (
+          <p className="text-center text-gray-400">등록된 공지사항이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {announcements.map((a) => (
+              <li key={a.id} className="py-4 flex items-center gap-3">
+                {a.is_pinned && (
+                  <span className="bg-primary text-white text-xs px-2 py-0.5 rounded-full shrink-0">고정</span>
+                )}
+                <span className="font-medium text-gray-800 flex-1">{a.title}</span>
+                <span className="text-gray-400 text-xs shrink-0">{a.created_at.slice(0, 10)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="text-center mt-6">
+          <Link href="/announcements" className="text-primary font-medium hover:underline text-sm">
+            공지사항 전체 보기 →
+          </Link>
+        </div>
+      </section>
     </div>
-  );
+  )
 }
